@@ -1,19 +1,72 @@
-/*>> Consigna:  En detalle, que incorpore las siguientes rutas:
+/*
+ 
 
-Crear un espacio público de servidor que contenga un documento index.html con un formulario de ingreso de productos con los datos apropiados.
+
+
+>> Aspectos a incluir en el entregable:
+Para construir la tabla dinámica con los datos recibidos por websocket utilizar Handlebars en el frontend. Considerar usar archivos públicos para alojar la plantilla vacía, y obtenerla usando la función fetch( ). Recordar que fetch devuelve una promesa.
+
 
 */
 
-//Realizar un proyecto de servidor basado en node.js y express que ofrezca una API RESTful de productos.
+
 const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
 const {Router} = express;
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
 app.use(express.json())
 const productsRouter = Router();
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
 
 let productos = []
+let messages = []
+
+
+
+io.on('connection', client => {
+   
+  
+    client.emit('products-update', productos)
+
+    client.emit('messages-update', messages)
+  
+    client.on('producto', data => {   
+        let id = 1
+        let ids = []
+        if(productos.length>0){
+            productos.forEach((o)=>{
+                ids.push(o.id)
+            });
+            id = Math.max(...ids) + 1             
+        }    
+        data.id = id
+        productos.push(data)
+        
+        io.sockets.emit('products-update', productos);
+        
+
+        // io.sockets.emit('messages-update', "Hello world");    
+    });
+    client.on('mensaje', data =>{
+        const date = new Date()
+        const DD = date.getDay()
+        const MM = date.getMonth()
+        const YY = date.getYear()
+        const hh = date.getHours()
+        const mm = date.getMinutes()
+        data.date = {DD, MM, YY, hh, mm}
+     
+        messages.push(data)
+
+        io.sockets.emit('messages-update', messages);
+
+
+    })
+  });
 
 //GET '/api/productos' -> devuelve todos los productos.
 productsRouter.get('/', (req, res)=>{
@@ -95,6 +148,6 @@ productsRouter.delete('/:id', (req, res)=>{
 app.use('/api/productos', productsRouter)
 
 const PORT = 8080
-app.listen(PORT, ()=> console.log(`I´m listening in port ${PORT}`))
+server.listen(PORT, ()=> console.log(`I´m listening in port ${PORT}`))
 
 
